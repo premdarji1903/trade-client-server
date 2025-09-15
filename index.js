@@ -59,6 +59,34 @@ app.get("/clients", async (req, res) => {
     }
 });
 
+// 🔹 API: Update Client Token
+app.patch("/client/:clientId", async (req, res) => {
+    try {
+        const { clientId } = req.params;
+        const { token } = req.body;
+
+        // Check if token is provided
+        if (!token) {
+            return res.status(400).json({ message: "⚠️ Token is required" });
+        }
+
+        // Find and update client by clientId
+        const updatedClient = await Client.findOneAndUpdate(
+            { clientId },
+            { token },
+            { new: true } // return updated document
+        );
+
+        if (!updatedClient) {
+            return res.status(404).json({ message: "Client not found" });
+        }
+
+        res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
+    } catch (error) {
+        res.status(500).json({ message: "Error updating token", error });
+    }
+});
+
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {

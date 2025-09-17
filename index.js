@@ -4,6 +4,9 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const dotenv=require('dotenv')
 const app = express();
+const jwt=require("jsonwebtoken");
+const { verifyToken } = require("./authMiddleware");
+
 dotenv.config()
 app.use(bodyParser.json());
 app.use(cors());
@@ -142,27 +145,30 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "❌ Invalid credentials" });
     }
 
+      const token = jwt.sign(
+      { id: user._id, email: user.email }, // payload
+      process.env.JWT_SECRET || "supersecretkey", // secret key
+      { expiresIn: "1d" } // token validity
+    );
     // 4️⃣ Success → Only send validation success
-    res.status(200).json({ message: "✅ Login successful" });
+    res.status(200).json({ message: "✅ Login successful",token });
   } catch (error) {
     res.status(500).json({ message: "Error during login", error });
   }
 });
 
-app.get("/trades", async (req, res) => {
+app.get("/trades", verifyToken, async (req, res) => {
   try {
-    const { start, end } = req.query; // optional query params YYYY-MM-DD
+    const { start, end, page = 1, limit = 10 } = req.query; // added page & limit
 
     let filter = {};
 
     if (start && end) {
-      // If both start and end are provided, filter trades between these dates
       filter.created_at = {
         $gte: `${start} 00:00:00`,
         $lte: `${end} 23:59:59`,
       };
     } else {
-      // Default: today
       const today = new Date();
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -172,13 +178,30 @@ app.get("/trades", async (req, res) => {
       filter.created_at = { $regex: `^${todayStr}` };
     }
 
-    const trades = await Trade.find(filter);
-    res.json(trades);
+    // Pagination calculation
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const trades = await Trade.find(filter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ created_at: -1 }); // latest first
+
+    const total = await Trade.countDocuments(filter); // total records
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      trades,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total,
+      totalPages,
+    });
   } catch (error) {
     console.log("error", error);
     res.status(500).json({ message: "Error fetching trades", error });
   }
 });
+
 
 // 🔹 Start Server
 const PORT = 3000;

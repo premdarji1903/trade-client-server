@@ -25,7 +25,41 @@ const clientSchema = new mongoose.Schema({
 
 
 const Client = mongoose.model("Client", clientSchema);
+const adminSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+});
 
+// Create Model
+const Admin = mongoose.model("Admin", adminSchema, "admin");
+const tradeSchema = new mongoose.Schema({
+  clientId: { type: String, required: true },
+  clientName: { type: String, required: true },
+  orderId: { type: String, required: true },
+  symbol: { type: String, required: true },
+  transactionType: { type: String, required: true },
+  quantity: { type: Number, required: true },
+  entry_price: { type: Number, required: true },
+  exit_price: { type: Number },
+  pnl: { type: Number },
+  trend: { type: String },
+  status: { type: String, default: "Pending" },
+  created_at: { type: String, default: () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const min = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+  }},
+  exit_time: { type: String }, // store as "YYYY-MM-DD HH:mm:ss"
+});
+
+
+// Collection name: trades
+const Trade = mongoose.model("trades", tradeSchema,"trades");
 // 🔹 API: Add Client
 app.post("/clients", async (req, res) => {
     try {
@@ -85,6 +119,65 @@ app.patch("/client/:clientId", async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: "Error updating token", error });
     }
+});
+
+// 🔹 API: Login validation
+app.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1️⃣ Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: "⚠️ Mobile number and password are required" });
+    }
+
+    // 2️⃣ Find user
+    const user =  await Admin.findOne({ email: req.body.email.trim() });
+    if (!user) {
+      return res.status(401).json({ message: "❌ Invalid credentials" });
+    }
+
+    // 3️⃣ Check password (⚠️ In production use bcrypt)
+    if (user.password !== password) {
+      return res.status(401).json({ message: "❌ Invalid credentials" });
+    }
+
+    // 4️⃣ Success → Only send validation success
+    res.status(200).json({ message: "✅ Login successful" });
+  } catch (error) {
+    res.status(500).json({ message: "Error during login", error });
+  }
+});
+
+app.get("/trades", async (req, res) => {
+  try {
+    const { start, end } = req.query; // optional query params YYYY-MM-DD
+
+    let filter = {};
+
+    if (start && end) {
+      // If both start and end are provided, filter trades between these dates
+      filter.created_at = {
+        $gte: `${start} 00:00:00`,
+        $lte: `${end} 23:59:59`,
+      };
+    } else {
+      // Default: today
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+
+      filter.created_at = { $regex: `^${todayStr}` };
+    }
+
+    const trades = await Trade.find(filter);
+    res.json(trades);
+  } catch (error) {
+    console.log("error", error);
+    res.status(500).json({ message: "Error fetching trades", error });
+  }
 });
 
 // 🔹 Start Server

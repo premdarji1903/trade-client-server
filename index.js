@@ -2,30 +2,30 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const dotenv=require('dotenv')
+const dotenv = require("dotenv");
 const app = express();
-const jwt=require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
 
-dotenv.config()
+dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
 // 🔹 MongoDB Connection
 mongoose
-    .connect(process.env.MONGO_URL, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    })
-    .then(() => console.log("✅ MongoDB Connected"))
-    .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  .connect(process.env.MONGO_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
 // 🔹 Schema & Model
 const clientSchema = new mongoose.Schema({
-    clientName: { type: String, required: true },
-    clientId: { type: String, required: true },
-    token: { type: String, required: true }
+  clientName: { type: String, required: true },
+  clientId: { type: String, required: true },
+  token: { type: String, required: true },
+  trade: { type: String, required: true },
 });
-
 
 const Client = mongoose.model("Client", clientSchema);
 const adminSchema = new mongoose.Schema({
@@ -47,81 +47,85 @@ const tradeSchema = new mongoose.Schema({
   pnl: { type: Number },
   trend: { type: String },
   status: { type: String, default: "Pending" },
-  created_at: { type: String, default: () => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const dd = String(now.getDate()).padStart(2, "0");
-    const hh = String(now.getHours()).padStart(2, "0");
-    const min = String(now.getMinutes()).padStart(2, "0");
-    const ss = String(now.getSeconds()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-  }},
+  created_at: {
+    type: String,
+    default: () => {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const min = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+    },
+  },
   exit_time: { type: String }, // store as "YYYY-MM-DD HH:mm:ss"
 });
 
-
 // Collection name: trades
-const Trade = mongoose.model("trades", tradeSchema,"trades");
+const Trade = mongoose.model("trades", tradeSchema, "trades");
 // 🔹 API: Add Client
 app.post("/clients", async (req, res) => {
-    try {
-        const { clientName, clientId, token } = req.body;
+  try {
+    const { clientName, clientId, token, trade } = req.body;
 
-        // Check if any field is missing
-        if (!clientName || !clientId || !token) {
-            return res.status(400).json({ message: "⚠️ All fields are required" });
-        }
-
-        // Check if clientId already exists
-        const existingClient = await Client.findOne({ clientId });
-        if (existingClient) {
-            return res.status(400).json({ message: "Client ID already exists" });
-        }
-        const client = new Client({ clientName, clientId, token });
-        await client.save();
-        res.status(201).json({ message: "Client saved successfully", client });
-    } catch (error) {
-        res.status(500).json({ message: "Error saving client", error });
+    // Check if any field is missing
+    if (!clientName || !clientId || !token) {
+      return res.status(400).json({ message: "⚠️ All fields are required" });
     }
+
+    // Check if clientId already exists
+    const existingClient = await Client.findOne({ clientId });
+    if (existingClient) {
+      return res.status(400).json({ message: "Client ID already exists" });
+    }
+    const client = new Client({ clientName, clientId, token, trade });
+    await client.save();
+    res.status(201).json({ message: "Client saved successfully", client });
+  } catch (error) {
+    res.status(500).json({ message: "Error saving client", error });
+  }
 });
 
 // 🔹 API: Get All Clients
 app.get("/clients", async (req, res) => {
-    try {
-        const clients = await Client.find();
-        res.json(clients);
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching clients", error });
-    }
+  try {
+    const clients = await Client.find();
+    res.json(clients);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching clients", error });
+  }
 });
 
 // 🔹 API: Update Client Token
 app.patch("/client/:clientId", async (req, res) => {
-    try {
-        const { clientId } = req.params;
-        const { token } = req.body;
+  try {
+    const { clientId } = req.params;
+    const { token, trade } = req.body;
 
-        // Check if token is provided
-        if (!token) {
-            return res.status(400).json({ message: "⚠️ Token is required" });
-        }
-
-        // Find and update client by clientId
-        const updatedClient = await Client.findOneAndUpdate(
-            { clientId },
-            { token },
-            { new: true } // return updated document
-        );
-
-        if (!updatedClient) {
-            return res.status(404).json({ message: "Client not found" });
-        }
-
-        res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
-    } catch (error) {
-        res.status(500).json({ message: "Error updating token", error });
+    // Check if token is provided
+    if (!token || !trade) {
+      return res.status(400).json({ message: "⚠️ Token is required" });
     }
+
+    // Find and update client by clientId
+    const updatedClient = await Client.findOneAndUpdate(
+      { clientId },
+      { token, trade },
+      { new: true } // return updated document
+    );
+
+    if (!updatedClient) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    res
+      .status(200)
+      .json({ message: "✅ Token updated successfully", updatedClient });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating token", error });
+  }
 });
 
 // 🔹 API: Login validation
@@ -131,11 +135,13 @@ app.post("/login", async (req, res) => {
 
     // 1️⃣ Validate input
     if (!email || !password) {
-      return res.status(400).json({ message: "⚠️ Mobile number and password are required" });
+      return res
+        .status(400)
+        .json({ message: "⚠️ Mobile number and password are required" });
     }
 
     // 2️⃣ Find user
-    const user =  await Admin.findOne({ email: req.body.email.trim() });
+    const user = await Admin.findOne({ email: req.body.email.trim() });
     if (!user) {
       return res.status(401).json({ message: "❌ Invalid credentials" });
     }
@@ -145,13 +151,13 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "❌ Invalid credentials" });
     }
 
-      const token = jwt.sign(
+    const token = jwt.sign(
       { id: user._id, email: user.email }, // payload
       process.env.JWT_SECRET || "supersecretkey", // secret key
       { expiresIn: "1d" } // token validity
     );
     // 4️⃣ Success → Only send validation success
-    res.status(200).json({ message: "✅ Login successful",token });
+    res.status(200).json({ message: "✅ Login successful", token });
   } catch (error) {
     res.status(500).json({ message: "Error during login", error });
   }
@@ -202,9 +208,8 @@ app.get("/trades", verifyToken, async (req, res) => {
   }
 });
 
-
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

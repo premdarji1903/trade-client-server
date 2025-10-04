@@ -27,6 +27,7 @@ const clientSchema = new mongoose.Schema({
   clientId: { type: String, required: true },
   token: { type: String, required: true },
   trade: { type: String, required: true },
+  role: { type: String, required: true },
 });
 
 const Client = mongoose.model("Client", clientSchema);
@@ -82,7 +83,13 @@ app.post("/clients", async (req, res) => {
     if (existingClient) {
       return res.status(400).json({ message: "Client ID already exists" });
     }
-    const client = new Client({ clientName, clientId, token, trade });
+    const client = new Client({
+      clientName,
+      clientId,
+      token,
+      trade,
+      role: "user",
+    });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });
   } catch (error) {
@@ -115,9 +122,10 @@ app.patch("/client/:clientId", async (req, res) => {
       );
       if (!updatedClient) {
         return res.status(404).json({ message: "Client not found" });
-      }
-      else {
-          return res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
+      } else {
+        return res
+          .status(200)
+          .json({ message: "✅ Token updated successfully", updatedClient });
       }
     }
 
@@ -137,7 +145,9 @@ app.patch("/client/:clientId", async (req, res) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
+    res
+      .status(200)
+      .json({ message: "✅ Token updated successfully", updatedClient });
   } catch (error) {
     res.status(500).json({ message: "Error updating token", error });
   }

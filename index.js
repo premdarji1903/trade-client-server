@@ -233,6 +233,35 @@ app.get("/trades", verifyToken, async (req, res) => {
   }
 });
 
+app.get("/redirect", async (req, res) => {
+  console.log("req--->", req?.query);
+  // const response = await axios.post(
+  //   `https://auth.dhan.co/app/consumeApp-consent?tokenId=${req?.query?.tokenId}`,
+  //   null,
+  //   {
+  //     headers: {
+  //       app_id: API_KEY,
+  //       app_secret: API_SECRET_KEY,
+  //     },
+  //   }
+  // );
+  // console.log("response", response);
+
+  // if (response) {
+  //   await axios.patch(
+  //     `https://trade-client-server.onrender.com/client/${response?.data?.dhanClientId}`
+  //   );
+  // }
+  res.send("hello world");
+});
+// Webhook callback URL (same as you gave in Dhan dashboard)
+app.post("/callback", (req, res) => {
+  console.log("=== /callback Endpoint Hit ===");
+  console.log("Query params:", req.query);
+  console.log("Body params:", req.body);
+  res.send("✅ Received tokenId / order update. Check console logs.");
+});
+
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {

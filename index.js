@@ -6,13 +6,15 @@ const dotenv = require("dotenv");
 const app = express();
 const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
-
+const MONGO_URL =
+  "mongodb+srv://premdarjioneup:fHa8AsQBUepwXT7h@cluster0.zxkjxtd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const JWT_SECRET_KEY = " MyTradeApp";
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
 // 🔹 MongoDB Connection
 mongoose
-  .connect(process.env.MONGO_URL, {
+  .connect(process.env.MONGO_URL ?? MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -102,17 +104,32 @@ app.get("/clients", async (req, res) => {
 app.patch("/client/:clientId", async (req, res) => {
   try {
     const { clientId } = req.params;
-    const { token, trade } = req.body;
+    const { token } = req.body;
+    const getClientInfo = await Client.findOne({ clientId, role: "admin" });
 
-    // Check if token is provided
-    if (!token || !trade) {
+    if (getClientInfo) {
+      const updatedClient = await Client.findOneAndUpdate(
+        { clientId },
+        { token },
+        { new: true } // return updated document
+      );
+      if (!updatedClient) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      else {
+          return res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
+      }
+    }
+
+    // Check if to
+    if (!token) {
       return res.status(400).json({ message: "⚠️ Token is required" });
     }
 
     // Find and update client by clientId
     const updatedClient = await Client.findOneAndUpdate(
       { clientId },
-      { token, trade },
+      { token, trade: req?.body?.token },
       { new: true } // return updated document
     );
 
@@ -120,9 +137,7 @@ app.patch("/client/:clientId", async (req, res) => {
       return res.status(404).json({ message: "Client not found" });
     }
 
-    res
-      .status(200)
-      .json({ message: "✅ Token updated successfully", updatedClient });
+    res.status(200).json({ message: "✅ Token updated successfully", updatedClient });
   } catch (error) {
     res.status(500).json({ message: "Error updating token", error });
   }

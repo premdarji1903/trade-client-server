@@ -129,7 +129,7 @@ app.patch("/client/:clientId", async (req, res) => {
     // Find and update client by clientId
     const updatedClient = await Client.findOneAndUpdate(
       { clientId },
-      { token, trade: req?.body?.token },
+      { token, trade: req?.body?.trade },
       { new: true } // return updated document
     );
 

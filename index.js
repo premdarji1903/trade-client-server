@@ -6,12 +6,14 @@ const dotenv = require("dotenv");
 const app = express();
 const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
+const axios = require("axios");
 const MONGO_URL =
   "mongodb+srv://premdarjioneup:fHa8AsQBUepwXT7h@cluster0.zxkjxtd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const JWT_SECRET_KEY = " MyTradeApp";
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
+
 // 🔹 MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URL ?? MONGO_URL, {
@@ -28,6 +30,10 @@ const clientSchema = new mongoose.Schema({
   token: { type: String, required: true },
   trade: { type: String, required: true },
   role: { type: String, required: true },
+  api_secret: { type: String, required: true },
+  api_key: { type: String, required: true },
+  email: { type: String, required: true },
+  mobileNumber: { type: String, required: true },
 });
 
 const Client = mongoose.model("Client", clientSchema);
@@ -68,10 +74,23 @@ const tradeSchema = new mongoose.Schema({
 
 // Collection name: trades
 const Trade = mongoose.model("trades", tradeSchema, "trades");
+
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "Server is Working" });
+});
 // 🔹 API: Add Client
 app.post("/clients", async (req, res) => {
   try {
-    const { clientName, clientId, token, trade } = req.body;
+    const {
+      clientName,
+      clientId,
+      token,
+      trade,
+      api_key,
+      api_secret,
+      mobileNumber,
+      email,
+    } = req.body;
 
     // Check if any field is missing
     if (!clientName || !clientId || !token) {
@@ -89,6 +108,10 @@ app.post("/clients", async (req, res) => {
       token,
       trade,
       role: "user",
+      api_key,
+      api_secret,
+      mobileNumber,
+      email,
     });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });
@@ -233,26 +256,130 @@ app.get("/trades", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/redirect", async (req, res) => {
-  console.log("req--->", req?.query);
-  // const response = await axios.post(
-  //   `https://auth.dhan.co/app/consumeApp-consent?tokenId=${req?.query?.tokenId}`,
-  //   null,
-  //   {
-  //     headers: {
-  //       app_id: API_KEY,
-  //       app_secret: API_SECRET_KEY,
-  //     },
-  //   }
-  // );
-  // console.log("response", response);
+app.get("/redirect/:clientMobilenumber", async (req, res) => {
+  try {
+    console.log("Call Into Redirect Url");
+    console.log("req--->", req?.query);
+    const token = req?.query?.tokenId;
 
-  // if (response) {
-  //   await axios.patch(
-  //     `https://trade-client-server.onrender.com/client/${response?.data?.dhanClientId}`
-  //   );
-  // }
-  res.send("hello world");
+    const clientMobilenumber = req?.params?.clientMobilenumber;
+    console.log("clientMobilenumber", clientMobilenumber);
+
+    const getClientInfo = await Client.findOne({
+      mobileNumber: clientMobilenumber,
+    });
+
+    console.log("getClientInfo", getClientInfo);
+
+    if (!getClientInfo) {
+      console.log("Client not Found");
+    }
+
+    const response = await axios.post(
+      `https://auth.dhan.co/app/consumeApp-consent?tokenId=${token}`,
+      null,
+      {
+        headers: {
+          app_id: getClientInfo?.api_key,
+          app_secret: getClientInfo?.api_secret,
+        },
+      }
+    );
+    console.log("response", response);
+
+    if (response) {
+      const updatedClient = await Client.findOneAndUpdate(
+        { mobileNumber: clientMobilenumber },
+        { token: response?.data?.accessToken },
+        { new: true } // return updated document
+      );
+      console.log("Updated Token ---->", updatedClient);
+      const html = `
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Access Token Updated</title>
+      <style>
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f4f6f8;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          margin: 0;
+        }
+        .card {
+          background: #ffffff;
+          border-radius: 16px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+          text-align: center;
+          padding: 40px 30px;
+          width: 100%;
+          max-width: 420px;
+          animation: fadeIn 0.6s ease-in-out;
+        }
+        .icon {
+          width: 80px;
+          height: 80px;
+          background-color: #e6f4ea;
+          color: #34a853;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 40px;
+          margin: 0 auto 20px;
+        }
+        h1 {
+          font-size: 22px;
+          color: #0052cc;
+          margin-bottom: 10px;
+        }
+        p {
+          font-size: 16px;
+          color: #444;
+          margin-bottom: 30px;
+        }
+        a.button {
+          display: inline-block;
+          padding: 12px 24px;
+          font-size: 15px;
+          color: #ffffff;
+          background-color: #0052cc;
+          border-radius: 8px;
+          text-decoration: none;
+          transition: background-color 0.3s ease;
+        }
+        a.button:hover {
+          background-color: #003d99;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">✅</div>
+        <h1>Access Token Updated Successfully</h1>
+        <p>Your Dhan account access token has been securely updated.</p>
+        <a href="/" class="button">Go Back to Dashboard</a>
+      </div>
+    </body>
+  </html>
+  `;
+
+      res.status(200).send(html);
+    } else {
+      res.send("hello world");
+    }
+  } catch (err) {
+    console.log("Error", err);
+  }
 });
 // Webhook callback URL (same as you gave in Dhan dashboard)
 app.post("/callback", (req, res) => {

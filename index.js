@@ -27,11 +27,10 @@ mongoose
 const clientSchema = new mongoose.Schema({
   clientName: { type: String, required: true },
   clientId: { type: String, required: true },
-  token: { type: String, required: true },
-  trade: { type: String, required: true },
+  trade: { type: [String], required: true },
   role: { type: String, required: true },
-  api_secret: { type: String, required: true },
-  api_key: { type: String, required: true },
+  api_secret: { type: String },
+  api_key: { type: String },
   email: { type: String, required: true },
   mobileNumber: { type: String, required: true },
 });
@@ -78,38 +77,35 @@ const Trade = mongoose.model("trades", tradeSchema, "trades");
 app.get("/", (req, res) => {
   res.status(200).json({ message: "Server is Working" });
 });
+
 // 🔹 API: Add Client
 app.post("/clients", async (req, res) => {
   try {
-    const {
-      clientName,
-      clientId,
-      token,
-      trade,
-      api_key,
-      api_secret,
-      mobileNumber,
-      email,
-    } = req.body;
+    const { clientName, clientId, trade, mobileNumber, email } = req.body;
+    const existingClient = await Client.findOne({
+      $or: [{ clientId }, { mobileNumber }, { email }, { clientName }],
+    });
 
-    // Check if any field is missing
-    if (!clientName || !clientId || !token) {
-      return res.status(400).json({ message: "⚠️ All fields are required" });
-    }
-
-    // Check if clientId already exists
-    const existingClient = await Client.findOne({ clientId });
     if (existingClient) {
-      return res.status(400).json({ message: "Client ID already exists" });
+      // Identify which field caused duplication for a more user-friendly message
+      let duplicateField = "";
+      if (existingClient?.clientId === clientId) duplicateField = "Client ID";
+      else if (existingClient?.mobileNumber === mobileNumber)
+        duplicateField = "Mobile Number";
+      else if (existingClient?.email === email) duplicateField = "Email";
+
+      return res.status(400).json({
+        message: `⚠️ ${duplicateField} already exists. Please use a different one.`,
+      });
     }
+
     const client = new Client({
       clientName,
       clientId,
-      token,
       trade,
       role: "user",
-      api_key,
-      api_secret,
+      api_key: "",
+      api_secret: "",
       mobileNumber,
       email,
     });
@@ -387,6 +383,38 @@ app.post("/callback", (req, res) => {
   console.log("Query params:", req.query);
   console.log("Body params:", req.body);
   res.send("✅ Received tokenId / order update. Check console logs.");
+});
+
+// 🔹 API: Update Client Token
+app.patch("/clients/:clientId/apikeys", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { api_key, api_secret } = req.body;
+    const getClientInfo = await Client.findById({
+      _id: clientId,
+      role: "user",
+    });
+    if (getClientInfo) {
+      const updatedClient = await Client.findByIdAndUpdate(
+        { _id: clientId },
+        { api_key, api_secret },
+        { new: true } // return updated document
+      );
+      if (!updatedClient) {
+        res.status(404).json({ message: "Client not found" });
+      } else {
+        res
+          .status(200)
+          .json({ message: "✅ Api Key updated successfully", updatedClient });
+      }
+    }
+
+    if (!getClientInfo) {
+      res.status(404).json({ message: "Client not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Error updating token", error });
+  }
 });
 
 // 🔹 Start Server

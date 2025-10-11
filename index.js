@@ -29,6 +29,7 @@ const clientSchema = new mongoose.Schema({
   clientId: { type: String, required: true },
   trade: { type: [String], required: true },
   role: { type: String, required: true },
+  token: { type: String },
   api_secret: { type: String },
   api_key: { type: String },
   email: { type: String, required: true },
@@ -108,6 +109,7 @@ app.post("/clients", async (req, res) => {
       api_secret: "",
       mobileNumber,
       email,
+      token: "",
     });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });

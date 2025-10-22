@@ -479,6 +479,25 @@ app.get("/clients", async (req, res) => {
   }
 });
 
+app.patch("/clients/:clientId/isPaid", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { isPaid } = req.body;
+
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { isPaid },
+      { new: true }
+    );
+
+    if (!client) return res.status(404).json({ message: "Client not found" });
+
+    res.json({ message: "✅ isPaid status updated", client });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating isPaid", error });
+  }
+});
+
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {

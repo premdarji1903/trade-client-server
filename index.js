@@ -460,7 +460,7 @@ app.get("/clients", async (req, res) => {
 
     // 📋 Fetch paginated data
     const clients = await Client.find({ role: "user" })
-      .sort({ createdAt: -1 }) // newest first (optional)
+      .sort({ clientName: 1 })
       .skip(skip)
       .limit(limit);
 

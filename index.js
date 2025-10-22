@@ -7,8 +7,7 @@ const app = express();
 const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
 const axios = require("axios");
-const MONGO_URL =
-  "mongodb+srv://premdarjioneup:fHa8AsQBUepwXT7h@cluster0.zxkjxtd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const QRCode = require("qrcode");
 const JWT_SECRET_KEY = " MyTradeApp";
 dotenv.config();
 app.use(bodyParser.json());
@@ -34,6 +33,7 @@ const clientSchema = new mongoose.Schema({
   api_key: { type: String },
   email: { type: String, required: true },
   mobileNumber: { type: String, required: true },
+  isPaid: { type: Boolean },
 });
 
 const Client = mongoose.model("Client", clientSchema);
@@ -110,6 +110,7 @@ app.post("/clients", async (req, res) => {
       mobileNumber,
       email,
       token: "",
+      isPaid: false,
     });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });
@@ -416,6 +417,65 @@ app.patch("/clients/:clientId/apikeys", async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: "Error updating token", error });
+  }
+});
+
+// 📱 POST: Generate Payment QR Code Image
+app.post("/generate-qr", async (req, res) => {
+  try {
+    const { amount, note } = req.body;
+
+    // 🧾 Validate amount
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "⚠️ Please provide a valid amount" });
+    }
+
+    // 🏦 Create UPI Payment URL
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(process.env.UPI_ID)}&am=${amount}&cu=INR&tn=${encodeURIComponent(
+      note || "Payment"
+    )}`;
+
+    // 🖼️ Set header to return PNG
+    res.setHeader("Content-Type", "image/png");
+
+    // 🔁 Generate QR Code and pipe directly to response
+    QRCode.toFileStream(res, upiUrl);
+  } catch (error) {
+    console.error("QR generation failed:", error);
+    res.status(500).json({ message: "❌ Failed to generate QR code" });
+  }
+});
+
+app.get("/clients", async (req, res) => {
+  try {
+    // 📄 Extract pagination params (defaults)
+    const page = parseInt(req.query.page) || 1; // current page number
+    const limit = parseInt(req.query.limit) || 10; // records per page
+
+    // 🧮 Calculate skip value
+    const skip = (page - 1) * limit;
+
+    // 🧾 Fetch total count of users with role: "user"
+    const totalUsers = await Client.countDocuments({ role: "user" });
+
+    // 📋 Fetch paginated data
+    const clients = await Client.find({ role: "user" })
+      .sort({ createdAt: -1 }) // newest first (optional)
+      .skip(skip)
+      .limit(limit);
+
+    // ✅ Send structured response
+    res.status(200).json({
+      message: "✅ Users fetched successfully",
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+      pageSize: limit,
+      clients,
+    });
+  } catch (error) {
+    console.error("Error fetching clients:", error);
+    res.status(500).json({ message: "❌ Error fetching clients", error });
   }
 });
 

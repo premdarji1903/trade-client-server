@@ -119,15 +119,15 @@ app.post("/clients", async (req, res) => {
   }
 });
 
-// 🔹 API: Get All Clients
-app.get("/clients", async (req, res) => {
-  try {
-    const clients = await Client.find();
-    res.json(clients);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching clients", error });
-  }
-});
+// // 🔹 API: Get All Clients
+// app.get("/clients", async (req, res) => {
+//   try {
+//     const clients = await Client.find();
+//     res.json(clients);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching clients", error });
+//   }
+// });
 
 // 🔹 API: Update Client Token
 app.patch("/client/:clientId", async (req, res) => {

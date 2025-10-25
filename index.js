@@ -8,11 +8,10 @@ const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
 const axios = require("axios");
 const QRCode = require("qrcode");
-const JWT_SECRET_KEY = " MyTradeApp";
+const dayjs=require("dayjs")
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
-
 // 🔹 MongoDB Connection
 mongoose
   .connect(process.env.MONGO_URL ?? MONGO_URL, {
@@ -33,6 +32,7 @@ const clientSchema = new mongoose.Schema({
   api_key: { type: String },
   email: { type: String, required: true },
   mobileNumber: { type: String, required: true },
+  lastLogin: { type: String },
   isPaid: { type: Boolean },
 });
 
@@ -110,6 +110,7 @@ app.post("/clients", async (req, res) => {
       mobileNumber,
       email,
       token: "",
+      lastLogin: "",
       isPaid: false,
     });
     await client.save();
@@ -268,7 +269,6 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
       mobileNumber: clientMobilenumber,
     });
 
-    console.log("getClientInfo", getClientInfo);
 
     if (!getClientInfo) {
       console.log("Client not Found");
@@ -284,12 +284,14 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
         },
       }
     );
-    console.log("response", response);
 
     if (response) {
       const updatedClient = await Client.findOneAndUpdate(
         { mobileNumber: clientMobilenumber },
-        { token: response?.data?.accessToken },
+        {
+          token: response?.data?.accessToken,
+          lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
+        },
         { new: true } // return updated document
       );
       console.log("Updated Token ---->", updatedClient);
@@ -427,13 +429,15 @@ app.post("/generate-qr", async (req, res) => {
 
     // 🧾 Validate amount
     if (!amount || isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ message: "⚠️ Please provide a valid amount" });
+      return res
+        .status(400)
+        .json({ message: "⚠️ Please provide a valid amount" });
     }
 
     // 🏦 Create UPI Payment URL
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(process.env.UPI_ID)}&am=${amount}&cu=INR&tn=${encodeURIComponent(
-      note || "Payment"
-    )}`;
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(
+      process.env.UPI_ID
+    )}&am=${amount}&cu=INR&tn=${encodeURIComponent(note || "Payment")}`;
 
     // 🖼️ Set header to return PNG
     res.setHeader("Content-Type", "image/png");

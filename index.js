@@ -223,14 +223,7 @@ app.get("/trades", verifyToken, async (req, res) => {
         $gte: `${start} 00:00:00`,
         $lte: `${end} 23:59:59`,
       };
-    } else {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const dd = String(today.getDate()).padStart(2, "0");
-      const todayStr = `${yyyy}-${mm}-${dd}`;
-      filter.created_at = { $regex: `^${todayStr}` };
-    }
+    } 
 
     // Client name filter (case-insensitive, partial match)
     if (clientName) {

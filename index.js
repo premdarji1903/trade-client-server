@@ -22,19 +22,22 @@ mongoose
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
 // 🔹 Schema & Model
-const clientSchema = new mongoose.Schema({
-  clientName: { type: String, required: true },
-  clientId: { type: String, required: true },
-  trade: { type: [String], required: true },
-  role: { type: String, required: true },
-  token: { type: String },
-  api_secret: { type: String },
-  api_key: { type: String },
-  email: { type: String, required: true },
-  mobileNumber: { type: String, required: true },
-  lastLogin: { type: String },
-  isPaid: { type: Boolean },
-});
+const clientSchema = new mongoose.Schema(
+  {
+    clientName: { type: String, required: true },
+    clientId: { type: String, required: true },
+    trade: { type: [String], required: true },
+    role: { type: String, required: true },
+    token: { type: String },
+    api_secret: { type: String },
+    api_key: { type: String },
+    email: { type: String, required: true },
+    mobileNumber: { type: String, required: true },
+    lastLogin: { type: String },
+    isPaid: { type: Boolean },
+  },
+  { timestamps: true }
+);
 
 const Client = mongoose.model("Client", clientSchema);
 const adminSchema = new mongoose.Schema({

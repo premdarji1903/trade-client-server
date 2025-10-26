@@ -8,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const { verifyToken } = require("./authMiddleware");
 const axios = require("axios");
 const QRCode = require("qrcode");
-const dayjs=require("dayjs")
+const dayjs = require("dayjs");
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
@@ -213,10 +213,11 @@ app.post("/login", async (req, res) => {
 
 app.get("/trades", verifyToken, async (req, res) => {
   try {
-    const { start, end, page = 1, limit = 10 } = req.query; // added page & limit
+    const { start, end, clientName, page = 1, limit = 10 } = req.query; // added clientName
 
     let filter = {};
 
+    // Date filter
     if (start && end) {
       filter.created_at = {
         $gte: `${start} 00:00:00`,
@@ -228,13 +229,16 @@ app.get("/trades", verifyToken, async (req, res) => {
       const mm = String(today.getMonth() + 1).padStart(2, "0");
       const dd = String(today.getDate()).padStart(2, "0");
       const todayStr = `${yyyy}-${mm}-${dd}`;
-
       filter.created_at = { $regex: `^${todayStr}` };
+    }
+
+    // Client name filter (case-insensitive, partial match)
+    if (clientName) {
+      filter.clientName = { $regex: clientName, $options: "i" };
     }
 
     // Pagination calculation
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const trades = await Trade.find(filter)
       .skip(skip)
       .limit(parseInt(limit))
@@ -268,7 +272,6 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
     const getClientInfo = await Client.findOne({
       mobileNumber: clientMobilenumber,
     });
-
 
     if (!getClientInfo) {
       console.log("Client not Found");

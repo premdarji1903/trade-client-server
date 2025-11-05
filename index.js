@@ -501,6 +501,60 @@ app.patch("/clients/:clientId/isPaid", async (req, res) => {
   }
 });
 
+app.patch("/clients/:clientId/trades", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+    const { trade } = req.body; // expecting trade to be an array like ["Nifty", "Crude Oil"]
+
+    if (!Array.isArray(trade)) {
+      return res.status(400).json({ message: "❌ 'trade' must be an array" });
+    }
+
+    const client = await Client.findByIdAndUpdate(
+      clientId,
+      { trade },
+      { new: true }
+    );
+
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    res.json({
+      message: "✅ Trades updated successfully",
+      client,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error updating trades",
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/clients/:clientId", async (req, res) => {
+  try {
+    const { clientId } = req.params;
+
+    const deletedClient = await Client.findByIdAndDelete(clientId);
+
+    if (!deletedClient) {
+      return res.status(404).json({ message: "❌ Client not found" });
+    }
+
+    res.json({
+      message: "🗑️ Client deleted permanently",
+      deletedClient,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error deleting client",
+      error: error.message,
+    });
+  }
+});
+
+
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {

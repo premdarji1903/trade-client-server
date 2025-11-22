@@ -402,7 +402,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
     const getClientInfo = await Client.findOne({
       mobileNumber: clientMobilenumber,
     });
-
+    console.log("Get Client Info --->", getClientInfo);
     if (!getClientInfo) {
       console.log("Client not Found");
       return res.status(404).send("Client not found");
@@ -412,15 +412,19 @@ app.get("/:clientMobilenumber", async (req, res) => {
     // using requestToken and api_secret from getClientInfo
     const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
 
-    const sessionData = await kite.generateSession(requestToken, getClientInfo.api_secret);
+    const sessionData = await kite.generateSession(requestToken, getClientInfo.zerodha_api_secret);
+    console.log("sessionData", sessionData);
+
     const accessToken = sessionData.access_token;
+    console.log("accessToken", accessToken);
+
 
     // Update client document with access token
     const updatedClient = await Client.findOneAndUpdate(
       { mobileNumber: clientMobilenumber },
       {
         zerodha_access_token: accessToken,
-        lastLogin: new Date(),
+        // lastLogin: new Date(),
       },
       { new: true }
     );

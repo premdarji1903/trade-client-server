@@ -412,7 +412,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
     // using requestToken and api_secret from getClientInfo
     const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
 
-    const sessionData = await kite.generate_session(requestToken, getClientInfo.api_secret);
+    const sessionData = await kite.generateSession(requestToken, getClientInfo.api_secret);
     const accessToken = sessionData.access_token;
 
     // Update client document with access token

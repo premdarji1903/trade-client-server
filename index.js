@@ -9,6 +9,8 @@ const { verifyToken } = require("./authMiddleware");
 const axios = require("axios");
 const QRCode = require("qrcode");
 const dayjs = require("dayjs");
+const KiteConnect = require("kiteconnect").KiteConnect;
+
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
@@ -29,6 +31,9 @@ const clientSchema = new mongoose.Schema(
     trade: { type: [String], required: true },
     role: { type: String, required: true },
     token: { type: String },
+    zerodha_api_key: { type: String },
+    zerodha_api_secret: { type: String },
+    zerodha_access_token: { type: String },
     api_secret: { type: String },
     api_key: { type: String },
     email: { type: String, required: true },
@@ -381,6 +386,81 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
     console.log("Error", err);
   }
 });
+
+app.get("/:clientMobilenumber", async (req, res) => {
+  try {
+    console.log("Call Into Redirect Url");
+    console.log("req.query --->", req?.query);
+
+    // Correctly extract request_token
+    const requestToken = req?.query?.request_token;
+    const clientMobilenumber = req?.params?.clientMobilenumber;
+
+    console.log("Client Mobile Number:", clientMobilenumber);
+    console.log("Request Token:", requestToken);
+
+    const getClientInfo = await Client.findOne({
+      mobileNumber: clientMobilenumber,
+    });
+
+    if (!getClientInfo) {
+      console.log("Client not Found");
+      return res.status(404).send("Client not found");
+    }
+
+    // Here you can call your function to generate Zerodha access token
+    // using requestToken and api_secret from getClientInfo
+    const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
+
+    const sessionData = await kite.generate_session(requestToken, getClientInfo.api_secret);
+    const accessToken = sessionData.access_token;
+
+    // Update client document with access token
+    const updatedClient = await Client.findOneAndUpdate(
+      { mobileNumber: clientMobilenumber },
+      {
+        zerodha_access_token: accessToken,
+        lastLogin: new Date(),
+      },
+      { new: true }
+    );
+
+    console.log("Updated Client ---->", updatedClient);
+
+    const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Access Token Updated</title>
+      <style>
+        body { font-family: 'Segoe UI', sans-serif; background:#f4f6f8; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
+        .card { background:#fff; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.1); text-align:center; padding:40px 30px; max-width:420px; }
+        .icon { width:80px; height:80px; background:#e6f4ea; color:#34a853; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:40px; margin:0 auto 20px; }
+        h1 { font-size:22px; color:#0052cc; margin-bottom:10px; }
+        p { font-size:16px; color:#444; margin-bottom:30px; }
+        a.button { display:inline-block; padding:12px 24px; font-size:15px; color:#fff; background:#0052cc; border-radius:8px; text-decoration:none; }
+        a.button:hover { background:#003d99; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">✅</div>
+        <h1>Access Token Updated Successfully</h1>
+        <p>Your Zerodha access token has been securely updated.</p>
+        <a href="/" class="button">Go Back to Dashboard</a>
+      </div>
+    </body>
+    </html>
+    `;
+
+    res.status(200).send(html);
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
 // Webhook callback URL (same as you gave in Dhan dashboard)
 app.post("/callback", (req, res) => {
   console.log("=== /callback Endpoint Hit ===");

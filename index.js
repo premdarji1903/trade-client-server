@@ -533,7 +533,7 @@ app.post("/generate-qr", async (req, res) => {
   }
 });
 
-app.get("/clients", async (req, res) => {
+app.get("/clients/all-clients", async (req, res) => {
   try {
     // 📄 Extract pagination params (defaults)
     const page = parseInt(req.query.page) || 1; // current page number

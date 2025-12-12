@@ -31,6 +31,7 @@ const clientSchema = new mongoose.Schema(
     trade: { type: [String], required: true },
     role: { type: String, required: true },
     token: { type: String },
+    broker: { type: String },
     zerodha_api_key: { type: String },
     zerodha_api_secret: { type: String },
     zerodha_access_token: { type: String },
@@ -90,7 +91,8 @@ app.get("/", (req, res) => {
 // 🔹 API: Add Client
 app.post("/clients", async (req, res) => {
   try {
-    const { clientName, clientId, trade, mobileNumber, email } = req.body;
+    const { clientName, clientId, trade, mobileNumber, email, broker } =
+      req.body;
     const existingClient = await Client.findOne({
       $or: [{ clientId }, { mobileNumber }, { email }, { clientName }],
     });
@@ -120,6 +122,7 @@ app.post("/clients", async (req, res) => {
       token: "",
       lastLogin: "",
       isPaid: false,
+      broker,
     });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });
@@ -231,7 +234,7 @@ app.get("/trades", verifyToken, async (req, res) => {
         $gte: `${start} 00:00:00`,
         $lte: `${end} 23:59:59`,
       };
-    } 
+    }
 
     // Client name filter (case-insensitive, partial match)
     if (clientName) {
@@ -412,12 +415,14 @@ app.get("/:clientMobilenumber", async (req, res) => {
     // using requestToken and api_secret from getClientInfo
     const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
 
-    const sessionData = await kite.generateSession(requestToken, getClientInfo.zerodha_api_secret);
+    const sessionData = await kite.generateSession(
+      requestToken,
+      getClientInfo.zerodha_api_secret
+    );
     console.log("sessionData", sessionData);
 
     const accessToken = sessionData.access_token;
     console.log("accessToken", accessToken);
-
 
     // Update client document with access token
     const updatedClient = await Client.findOneAndUpdate(
@@ -594,9 +599,14 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
       return res.status(400).json({ message: "❌ 'trade' must be an array" });
     }
 
+    const updatedData = { trade };
+
+    if(req?.body?.broker){
+      updatedData.broker = req?.body?.broker;
+    }
     const client = await Client.findByIdAndUpdate(
       clientId,
-      { trade },
+      { ...updatedData },
       { new: true }
     );
 
@@ -637,7 +647,6 @@ app.delete("/clients/:clientId", async (req, res) => {
     });
   }
 });
-
 
 // 🔹 Start Server
 const PORT = 3000;

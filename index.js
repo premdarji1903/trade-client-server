@@ -224,7 +224,13 @@ app.post("/login", async (req, res) => {
 
 app.get("/trades", verifyToken, async (req, res) => {
   try {
-    const { start, end, clientName, page = 1, limit = 10 } = req.query; // added clientName
+    const {
+      start,
+      end,
+      clientName, // 👈 added
+      page = 1,
+      limit = 10,
+    } = req.query;
 
     let filter = {};
 
@@ -241,14 +247,22 @@ app.get("/trades", verifyToken, async (req, res) => {
       filter.clientName = { $regex: clientName, $options: "i" };
     }
 
-    // Pagination calculation
+    if (req.query?.symbol) {
+      filter.symbol = {
+        $regex: req.query.symbol,
+        $options: "i", // case-insensitive
+      };
+    }
+
+    // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const trades = await Trade.find(filter)
       .skip(skip)
       .limit(parseInt(limit))
-      .sort({ created_at: -1 }); // latest first
+      .sort({ created_at: -1 });
 
-    const total = await Trade.countDocuments(filter); // total records
+    const total = await Trade.countDocuments(filter);
     const totalPages = Math.ceil(total / limit);
 
     res.json({
@@ -601,7 +615,7 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
 
     const updatedData = { trade };
 
-    if(req?.body?.broker){
+    if (req?.body?.broker) {
       updatedData.broker = req?.body?.broker;
     }
     const client = await Client.findByIdAndUpdate(

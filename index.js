@@ -425,30 +425,59 @@ app.get("/:clientMobilenumber", async (req, res) => {
       return res.status(404).send("Client not found");
     }
 
-    // Here you can call your function to generate Zerodha access token
-    // using requestToken and api_secret from getClientInfo
-    const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
+    if (getClientInfo?.role === "admin") {
+      // Here you can call your function to generate Zerodha access token
+      // using requestToken and api_secret from getClientInfo
+      const kite = new KiteConnect({ api_key: getClientInfo.zerodha_api_key });
 
-    const sessionData = await kite.generateSession(
-      requestToken,
-      getClientInfo.zerodha_api_secret
-    );
-    console.log("sessionData", sessionData);
+      const sessionData = await kite.generateSession(
+        requestToken,
+        getClientInfo.zerodha_api_secret
+      );
+      console.log("sessionData", sessionData);
 
-    const accessToken = sessionData.access_token;
-    console.log("accessToken", accessToken);
+      const accessToken = sessionData.access_token;
+      console.log("accessToken", accessToken);
 
-    // Update client document with access token
-    const updatedClient = await Client.findOneAndUpdate(
-      { mobileNumber: clientMobilenumber },
-      {
-        zerodha_access_token: accessToken,
-        lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
-      },
-      { new: true }
-    );
+      // Update client document with access token
+      const updatedClient = await Client.findOneAndUpdate(
+        { mobileNumber: clientMobilenumber },
+        {
+          zerodha_access_token: accessToken,
+          lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
+        },
+        { new: true }
+      );
 
-    console.log("Updated Client ---->", updatedClient);
+      console.log("Updated Client ---->", updatedClient);
+    }
+
+    if (getClientInfo?.role === "user") {
+      // Here you can call your function to generate Zerodha access token
+      // using requestToken and api_secret from getClientInfo
+      const kite = new KiteConnect({ api_key: getClientInfo.api_key });
+
+      const sessionData = await kite.generateSession(
+        requestToken,
+        getClientInfo.api_secret
+      );
+      console.log("sessionData", sessionData);
+
+      const accessToken = sessionData.access_token;
+      console.log("accessToken", accessToken);
+
+      // Update client document with access token
+      const updatedClient = await Client.findOneAndUpdate(
+        { mobileNumber: clientMobilenumber },
+        {
+          token: accessToken,
+          lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
+        },
+        { new: true }
+      );
+
+      console.log("Updated Client ---->", updatedClient);
+    }
 
     const html = `
     <!DOCTYPE html>

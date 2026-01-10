@@ -443,7 +443,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
       { mobileNumber: clientMobilenumber },
       {
         zerodha_access_token: accessToken,
-        lastLogin: new Date(),
+        lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
       },
       { new: true }
     );

@@ -42,7 +42,7 @@ const clientSchema = new mongoose.Schema(
     lastLogin: { type: String },
     isPaid: { type: Boolean },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Client = mongoose.model("Client", clientSchema);
@@ -152,7 +152,7 @@ app.patch("/client/:clientId", async (req, res) => {
       const updatedClient = await Client.findOneAndUpdate(
         { clientId },
         { token },
-        { new: true } // return updated document
+        { new: true }, // return updated document
       );
       if (!updatedClient) {
         return res.status(404).json({ message: "Client not found" });
@@ -172,7 +172,7 @@ app.patch("/client/:clientId", async (req, res) => {
     const updatedClient = await Client.findOneAndUpdate(
       { clientId },
       { token, trade: req?.body?.trade },
-      { new: true } // return updated document
+      { new: true }, // return updated document
     );
 
     if (!updatedClient) {
@@ -213,7 +213,7 @@ app.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email }, // payload
       process.env.JWT_SECRET || "supersecretkey", // secret key
-      { expiresIn: "1d" } // token validity
+      { expiresIn: "1d" }, // token validity
     );
     // 4️⃣ Success → Only send validation success
     res.status(200).json({ message: "✅ Login successful", token });
@@ -278,6 +278,7 @@ app.get("/trades", verifyToken, async (req, res) => {
   }
 });
 
+// For Dhan Brokerage Integration - Webhook callback URL (same as you gave in Dhan dashboard)
 app.get("/redirect/:clientMobilenumber", async (req, res) => {
   try {
     console.log("Call Into Redirect Url");
@@ -303,7 +304,7 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
           app_id: getClientInfo?.api_key,
           app_secret: getClientInfo?.api_secret,
         },
-      }
+      },
     );
 
     if (response) {
@@ -313,7 +314,7 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
           token: response?.data?.accessToken,
           lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
         },
-        { new: true } // return updated document
+        { new: true }, // return updated document
       );
       console.log("Updated Token ---->", updatedClient);
       const html = `
@@ -404,6 +405,7 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
   }
 });
 
+// For Zerodha Brokerage Integration - Webhook callback URL (same as you gave in Zerodha dashboard)
 app.get("/:clientMobilenumber", async (req, res) => {
   try {
     console.log("Call Into Redirect Url");
@@ -432,7 +434,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
 
       const sessionData = await kite.generateSession(
         requestToken,
-        getClientInfo.zerodha_api_secret
+        getClientInfo.zerodha_api_secret,
       );
       console.log("sessionData", sessionData);
 
@@ -446,7 +448,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
           zerodha_access_token: accessToken,
           lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
         },
-        { new: true }
+        { new: true },
       );
 
       console.log("Updated Client ---->", updatedClient);
@@ -459,7 +461,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
 
       const sessionData = await kite.generateSession(
         requestToken,
-        getClientInfo.api_secret
+        getClientInfo.api_secret,
       );
       console.log("sessionData", sessionData);
 
@@ -473,7 +475,7 @@ app.get("/:clientMobilenumber", async (req, res) => {
           token: accessToken,
           lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
         },
-        { new: true }
+        { new: true },
       );
 
       console.log("Updated Client ---->", updatedClient);
@@ -513,6 +515,142 @@ app.get("/:clientMobilenumber", async (req, res) => {
   }
 });
 
+// For Paytm Brokerage Integration - Webhook callback URL (same as you gave in Paytm dashboard)
+app.get("/paytm/:clientMobilenumber", async (req, res) => {
+  try {
+    const requestToken = req.query.requestToken;
+    const clientMobilenumber = req.params.clientMobilenumber;
+    if (!requestToken) {
+      return res.send("Request token not found");
+    }
+    const getClientInfo = await Client.findOne({
+      mobileNumber: clientMobilenumber,
+    });
+    if (!getClientInfo) {
+      console.log("Client not Found");
+      return res.status(404).send("Client not found");
+    }
+    const response = await axios.post(
+      "https://developer.paytmmoney.com/accounts/v2/gettoken",
+      {
+        api_key: getClientInfo.api_key,
+        api_secret_key: getClientInfo?.api_secret,
+        request_token: requestToken,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    console.log("Access Token:", response.data);
+    const accessToken = response.data?.data?.access_token;
+    const updatedClient = await Client.findOneAndUpdate(
+      { mobileNumber: clientMobilenumber },
+      {
+        token: accessToken,
+        lastLogin: dayjs().format("YYYY-MM-DDTHH:mm:ss"),
+      },
+      { new: true },
+    );
+
+    console.log("Updated Client ---->", updatedClient); 
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Paytm Money Access Token Updated</title>
+
+<style>
+body{
+  font-family:'Segoe UI',sans-serif;
+  background:#f4f6f8;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  margin:0;
+}
+
+.card{
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.1);
+  text-align:center;
+  padding:40px 30px;
+  max-width:420px;
+}
+
+.icon{
+  width:80px;
+  height:80px;
+  background:#e6f7ff;
+  color:#00baf2;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:40px;
+  margin:0 auto 20px;
+}
+
+h1{
+  font-size:22px;
+  color:#00baf2;
+  margin-bottom:10px;
+}
+
+p{
+  font-size:16px;
+  color:#444;
+  margin-bottom:30px;
+}
+
+a.button{
+  display:inline-block;
+  padding:12px 24px;
+  font-size:15px;
+  color:#fff;
+  background:#00baf2;
+  border-radius:8px;
+  text-decoration:none;
+}
+
+a.button:hover{
+  background:#0092c7;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<div class="icon">💰</div>
+
+<h1>Paytm Money Access Token Generated</h1>
+
+<p>Your trading access token has been successfully generated and stored securely.</p>
+
+<a href="/" class="button">Go Back to Dashboard</a>
+
+</div>
+
+</body>
+</html>
+`;
+
+    res.status(200).send(html);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.send("Token generation failed");
+  }
+});
+
 // Webhook callback URL (same as you gave in Dhan dashboard)
 app.post("/callback", (req, res) => {
   console.log("=== /callback Endpoint Hit ===");
@@ -534,7 +672,7 @@ app.patch("/clients/:clientId/apikeys", async (req, res) => {
       const updatedClient = await Client.findByIdAndUpdate(
         { _id: clientId },
         { api_key, api_secret },
-        { new: true } // return updated document
+        { new: true }, // return updated document
       );
       if (!updatedClient) {
         res.status(404).json({ message: "Client not found" });
@@ -567,7 +705,7 @@ app.post("/generate-qr", async (req, res) => {
 
     // 🏦 Create UPI Payment URL
     const upiUrl = `upi://pay?pa=${encodeURIComponent(
-      process.env.UPI_ID
+      process.env.UPI_ID,
     )}&am=${amount}&cu=INR&tn=${encodeURIComponent(note || "Payment")}`;
 
     // 🖼️ Set header to return PNG
@@ -622,7 +760,7 @@ app.patch("/clients/:clientId/isPaid", async (req, res) => {
     const client = await Client.findByIdAndUpdate(
       clientId,
       { isPaid },
-      { new: true }
+      { new: true },
     );
 
     if (!client) return res.status(404).json({ message: "Client not found" });
@@ -647,10 +785,18 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
     if (req?.body?.broker) {
       updatedData.broker = req?.body?.broker;
     }
+
+    if (req?.body?.api_key) {
+      updatedData.api_key = req?.body?.api_key;
+    }
+
+    if (req?.body?.api_secret) {
+      updatedData.api_secret = req?.body?.api_secret;
+    }
     const client = await Client.findByIdAndUpdate(
       clientId,
       { ...updatedData },
-      { new: true }
+      { new: true },
     );
 
     if (!client) {

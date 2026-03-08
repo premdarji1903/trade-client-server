@@ -545,7 +545,7 @@ app.get("/paytm/:clientMobilenumber", async (req, res) => {
     );
 
     console.log("Access Token:", response.data);
-    const accessToken = response.data?.data?.access_token;
+    const accessToken = response.data?.access_token;
     const updatedClient = await Client.findOneAndUpdate(
       { mobileNumber: clientMobilenumber },
       {
@@ -646,6 +646,7 @@ a.button:hover{
 
     res.status(200).send(html);
   } catch (err) {
+    console.log(err)
     console.error(err.response?.data || err.message);
     res.send("Token generation failed");
   }

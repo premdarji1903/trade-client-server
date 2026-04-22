@@ -41,6 +41,7 @@ const clientSchema = new mongoose.Schema(
     mobileNumber: { type: String, required: true },
     lastLogin: { type: String },
     isPaid: { type: Boolean },
+    ip: { type: String },
   },
   { timestamps: true },
 );
@@ -123,6 +124,7 @@ app.post("/clients", async (req, res) => {
       lastLogin: "",
       isPaid: false,
       broker,
+      ip: "",
     });
     await client.save();
     res.status(201).json({ message: "Client saved successfully", client });
@@ -555,7 +557,7 @@ app.get("/paytm/:clientMobilenumber", async (req, res) => {
       { new: true },
     );
 
-    console.log("Updated Client ---->", updatedClient); 
+    console.log("Updated Client ---->", updatedClient);
 
     const html = `
 <!DOCTYPE html>
@@ -646,7 +648,7 @@ a.button:hover{
 
     res.status(200).send(html);
   } catch (err) {
-    console.log(err)
+    console.log(err);
     console.error(err.response?.data || err.message);
     res.send("Token generation failed");
   }
@@ -775,6 +777,7 @@ app.patch("/clients/:clientId/isPaid", async (req, res) => {
 app.patch("/clients/:clientId/trades", async (req, res) => {
   try {
     const { clientId } = req.params;
+    const getClientDetails = await Client.findById(clientId);
     const { trade } = req.body; // expecting trade to be an array like ["Nifty", "Crude Oil"]
 
     if (!Array.isArray(trade)) {
@@ -794,6 +797,41 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
     if (req?.body?.api_secret) {
       updatedData.api_secret = req?.body?.api_secret;
     }
+
+    if (req?.body?.ip && getClientDetails?.broker?.toLowerCase() === "dhan") {
+      if (!getClientDetails?.ip) {
+        const response = await setIP(
+          getClientDetails?.clientId,
+          req?.body?.ip,
+          req?.body?.ipFlag,
+        ).catch((err) => {
+          console.log("Error in setting IP in Dhan", err);
+        });
+        if (response?.status?.toLowerCase() === "success") {
+          console.log("IP set successfully in Dhan");
+          updatedData.ip = req?.body?.ip;
+        }
+      }
+
+      console.log("Client Details for IP Modification:", getClientDetails);
+      if (
+        getClientDetails?.ip &&
+        getClientDetails?.broker?.toLowerCase() === "dhan"
+      ) {
+        const response = await modifyIP(
+          getClientDetails?.clientId,
+          req?.body?.ip,
+          req?.body?.ipFlag,
+        ).catch((err) => {
+          console.log("Error in modifying IP in Dhan", err);
+        });
+        if (response?.status?.toLowerCase() === "success") {
+          console.log("IP modified successfully in Dhan");
+          updatedData.ip = req?.body?.ip;
+        }
+      }
+    }
+
     const client = await Client.findByIdAndUpdate(
       clientId,
       { ...updatedData },
@@ -837,6 +875,57 @@ app.delete("/clients/:clientId", async (req, res) => {
     });
   }
 });
+
+async function setIP(clientId, ip, ipFlag) {
+  try {
+    const response = await axios.post(
+      "https://api.dhan.co/v2/ip/setIP",
+      {
+        dhanClientId: clientId,
+        ip: ip,
+        ipFlag: ipFlag,
+      },
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "access-token": "YOUR_ACCESS_TOKEN",
+        },
+      },
+    );
+
+    console.log("Set IP Response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error:", error.response?.data || error.message);
+    return null;
+  }
+}
+
+async function modifyIP(dhanClientId, ip, ipFlag) {
+  try {
+    const response = await axios.put(
+      "https://api.dhan.co/v2/ip/modifyIP",
+      {
+        dhanClientId,
+        ip, // MUST be public IP
+        ipFlag, // "PRIMARY" or "SECONDARY"
+      },
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "access-token": process.env.DHAN_ACCESS_TOKEN,
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Modify IP Error:", error.response?.data || error.message);
+    return null;
+  }
+}
 
 // 🔹 Start Server
 const PORT = 3000;

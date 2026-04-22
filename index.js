@@ -804,6 +804,7 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
           getClientDetails?.clientId,
           req?.body?.ip,
           req?.body?.ipFlag,
+          getClientDetails?.token,
         ).catch((err) => {
           console.log("Error in setting IP in Dhan", err);
         });
@@ -822,6 +823,7 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
           getClientDetails?.clientId,
           req?.body?.ip,
           req?.body?.ipFlag,
+          getClientDetails?.token,
         ).catch((err) => {
           console.log("Error in modifying IP in Dhan", err);
         });
@@ -876,7 +878,7 @@ app.delete("/clients/:clientId", async (req, res) => {
   }
 });
 
-async function setIP(clientId, ip, ipFlag) {
+async function setIP(clientId, ip, ipFlag, token) {
   try {
     const response = await axios.post(
       "https://api.dhan.co/v2/ip/setIP",
@@ -889,7 +891,7 @@ async function setIP(clientId, ip, ipFlag) {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          "access-token": "YOUR_ACCESS_TOKEN",
+          "access-token": token,
         },
       },
     );
@@ -902,7 +904,7 @@ async function setIP(clientId, ip, ipFlag) {
   }
 }
 
-async function modifyIP(dhanClientId, ip, ipFlag) {
+async function modifyIP(dhanClientId, ip, ipFlag, token) {
   try {
     const response = await axios.put(
       "https://api.dhan.co/v2/ip/modifyIP",
@@ -915,7 +917,7 @@ async function modifyIP(dhanClientId, ip, ipFlag) {
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
-          "access-token": process.env.DHAN_ACCESS_TOKEN,
+          "access-token": token,
         },
       },
     );

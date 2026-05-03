@@ -1,0 +1,10 @@
+stages:
+  - deploy
+
+deploy_to_render:
+  stage: deploy
+  only:
+    - main
+  script:
+    - echo "Triggering Render deploy"
+    - curl -X POST "$RENDER_DEPLOY_HOOK"

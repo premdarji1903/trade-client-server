@@ -1,0 +1,16 @@
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  script:
+    - npm install
+    - npm run build
+
+deploy_to_render:
+  stage: deploy
+  only:
+    - main
+  script:
+    - curl -X POST "$RENDER_DEPLOY_HOOK"

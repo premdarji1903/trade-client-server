@@ -1,13 +1,5 @@
 stages:
-  - build
   - deploy
-
-build:
-  stage: build
-  script:
-    - node -v
-    - npm -v
-    - npm install
 
 deploy_to_render:
   stage: deploy

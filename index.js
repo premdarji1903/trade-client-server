@@ -10,7 +10,7 @@ const axios = require("axios");
 const QRCode = require("qrcode");
 const dayjs = require("dayjs");
 const KiteConnect = require("kiteconnect").KiteConnect;
-
+const os = require("os");
 dotenv.config();
 app.use(bodyParser.json());
 app.use(cors());
@@ -275,7 +275,6 @@ app.get("/trades", verifyToken, async (req, res) => {
       totalPages,
     });
   } catch (error) {
-    console.log("error", error);
     res.status(500).json({ message: "Error fetching trades", error });
   }
 });
@@ -318,7 +317,6 @@ app.get("/redirect/:clientMobilenumber", async (req, res) => {
         },
         { new: true }, // return updated document
       );
-      console.log("Updated Token ---->", updatedClient);
       const html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -425,7 +423,6 @@ app.get("/:clientMobilenumber", async (req, res) => {
     });
     console.log("Get Client Info --->", getClientInfo);
     if (!getClientInfo) {
-      console.log("Client not Found");
       return res.status(404).send("Client not found");
     }
 
@@ -438,10 +435,8 @@ app.get("/:clientMobilenumber", async (req, res) => {
         requestToken,
         getClientInfo.zerodha_api_secret,
       );
-      console.log("sessionData", sessionData);
 
       const accessToken = sessionData.access_token;
-      console.log("accessToken", accessToken);
 
       // Update client document with access token
       const updatedClient = await Client.findOneAndUpdate(
@@ -452,8 +447,6 @@ app.get("/:clientMobilenumber", async (req, res) => {
         },
         { new: true },
       );
-
-      console.log("Updated Client ---->", updatedClient);
     }
 
     if (getClientInfo?.role === "user") {
@@ -465,10 +458,8 @@ app.get("/:clientMobilenumber", async (req, res) => {
         requestToken,
         getClientInfo.api_secret,
       );
-      console.log("sessionData", sessionData);
 
       const accessToken = sessionData.access_token;
-      console.log("accessToken", accessToken);
 
       // Update client document with access token
       const updatedClient = await Client.findOneAndUpdate(
@@ -479,8 +470,6 @@ app.get("/:clientMobilenumber", async (req, res) => {
         },
         { new: true },
       );
-
-      console.log("Updated Client ---->", updatedClient);
     }
 
     const html = `
@@ -529,7 +518,6 @@ app.get("/paytm/:clientMobilenumber", async (req, res) => {
       mobileNumber: clientMobilenumber,
     });
     if (!getClientInfo) {
-      console.log("Client not Found");
       return res.status(404).send("Client not found");
     }
     const response = await axios.post(
@@ -546,7 +534,6 @@ app.get("/paytm/:clientMobilenumber", async (req, res) => {
       },
     );
 
-    console.log("Access Token:", response.data);
     const accessToken = response.data?.access_token;
     const updatedClient = await Client.findOneAndUpdate(
       { mobileNumber: clientMobilenumber },
@@ -556,8 +543,6 @@ app.get("/paytm/:clientMobilenumber", async (req, res) => {
       },
       { new: true },
     );
-
-    console.log("Updated Client ---->", updatedClient);
 
     const html = `
 <!DOCTYPE html>
@@ -648,17 +633,12 @@ a.button:hover{
 
     res.status(200).send(html);
   } catch (err) {
-    console.log(err);
-    console.error(err.response?.data || err.message);
     res.send("Token generation failed");
   }
 });
 
 // Webhook callback URL (same as you gave in Dhan dashboard)
 app.post("/callback", (req, res) => {
-  console.log("=== /callback Endpoint Hit ===");
-  console.log("Query params:", req.query);
-  console.log("Body params:", req.body);
   res.send("✅ Received tokenId / order update. Check console logs.");
 });
 
@@ -717,7 +697,6 @@ app.post("/generate-qr", async (req, res) => {
     // 🔁 Generate QR Code and pipe directly to response
     QRCode.toFileStream(res, upiUrl);
   } catch (error) {
-    console.error("QR generation failed:", error);
     res.status(500).json({ message: "❌ Failed to generate QR code" });
   }
 });
@@ -750,7 +729,6 @@ app.get("/clients/all-clients", async (req, res) => {
       clients,
     });
   } catch (error) {
-    console.error("Error fetching clients:", error);
     res.status(500).json({ message: "❌ Error fetching clients", error });
   }
 });
@@ -814,7 +792,6 @@ app.patch("/clients/:clientId/trades", async (req, res) => {
         }
       }
 
-      console.log("Client Details for IP Modification:", getClientDetails);
       if (
         getClientDetails?.ip &&
         getClientDetails?.broker?.toLowerCase() === "dhan"
@@ -899,7 +876,7 @@ async function setIP(clientId, ip, ipFlag, token) {
     console.log("Set IP Response:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error:", error.response?.data || error.message);
+    console.error("Set IP Error:", error.response?.data || error.message);
     return null;
   }
 }
@@ -929,8 +906,22 @@ async function modifyIP(dhanClientId, ip, ipFlag, token) {
   }
 }
 
+const getLocalIp = () => {
+  const interfaces = os.networkInterfaces();
+
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+};
+
+const ip = getLocalIp();
 // 🔹 Start Server
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://${ip}:${PORT}`);
 });
